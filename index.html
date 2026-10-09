@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#3D4CF2">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Screener">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>:root{color-scheme:light}html{padding-top:env(safe-area-inset-top,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<title>Pocket Screener</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: sticky header with rule strip and exchange chips, then one result card per match. */
+:root{
+  --bg:#EDEFF3; --surface:#FFFFFF; --ink:#151A23; --muted:#5E6877; --line:#D8DCE4;
+  --accent:#3D4CF2; --accent-ink:#FFFFFF; --up:#0E8F5B; --down:#D23B3B;
+  --up-bg:#DDF3E8; --down-bg:#FBE1E1; --warn-bg:#FFF1D6; --warn-ink:#7A5200;
+  --font-ui:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-num:"DM Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1118; --surface:#161B25; --ink:#E8ECF3; --muted:#8E99AB; --line:#262D3A;
+  --accent:#8E9BFF; --accent-ink:#0E1118; --up:#38C98B; --down:#FF6B6B;
+  --up-bg:#12382A; --down-bg:#431D1F; --warn-bg:#3A2F10; --warn-ink:#F2C879; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1118; --surface:#161B25; --ink:#E8ECF3; --muted:#8E99AB; --line:#262D3A;
+  --accent:#8E9BFF; --accent-ink:#0E1118; --up:#38C98B; --down:#FF6B6B;
+  --up-bg:#12382A; --down-bg:#431D1F; --warn-bg:#3A2F10; --warn-ink:#F2C879; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:15px;line-height:1.4;
+  padding-inline:16px;padding-block:0 32px;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:560px;margin-inline:auto;min-width:0}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:14px 8px}
+.head-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font-size:20px;font-weight:700;letter-spacing:-.01em;margin:0}
+.btn{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn[disabled]{opacity:.55;cursor:default}
+.rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.rule{font-size:12px;font-weight:600;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:3px 8px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-block:10px 4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 12px;font-size:13px;font-weight:500}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip small{opacity:.75;margin-left:4px;font-family:var(--font-num)}
+.src{display:grid;gap:6px;margin-block:8px}
+.srcrow{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);min-width:0}
+.dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.ok{background:var(--up)} .dot.err{background:var(--down)} .dot.busy{background:var(--accent)}
+.srcrow span{min-width:0;overflow-wrap:anywhere}
+.banner{background:var(--warn-bg);color:var(--warn-ink);border-radius:10px;padding:10px 12px;font-size:13px;margin-block:8px}
+.sortbar{display:flex;justify-content:space-between;align-items:center;padding-block:6px;font-size:13px;color:var(--muted)}
+.sel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font:inherit;font-size:13px;color:var(--ink)}
+.list{display:grid;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.id{min-width:0}
+.sym{font-family:var(--font-num);font-weight:700;font-size:17px}
+.tag{display:inline-block;margin-left:8px;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 6px;vertical-align:2px}
+.name{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.px{text-align:right;flex:none}
+.px b{display:block;font-weight:500;font-size:16px}
+.pill{display:inline-block;margin-top:2px;padding:1px 7px;border-radius:6px;font-size:12px;font-weight:500}
+.pill.up{background:var(--up-bg);color:var(--up)} .pill.down{background:var(--down-bg);color:var(--down)} .pill.flat{background:var(--bg);color:var(--muted)}
+.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.m{background:var(--bg);border-radius:8px;padding:8px 10px;min-width:0}
+.m span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.m b{font-weight:500;font-size:15px}
+.m i{font-style:normal;color:var(--up);margin-left:4px;font-size:12px}
+.m small{display:block;font-size:11px;color:var(--muted);margin-top:1px}
+.empty{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:26px 16px;text-align:center;color:var(--muted);font-size:14px}
+.empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
+.foot{margin-top:16px;font-size:12px;color:var(--muted)}
+</style>
+
+<title>Pocket Screener</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: sticky header with rule strip and exchange chips, then one result card per match. */
+:root{
+  --bg:#EDEFF3; --surface:#FFFFFF; --ink:#151A23; --muted:#5E6877; --line:#D8DCE4;
+  --accent:#3D4CF2; --accent-ink:#FFFFFF; --up:#0E8F5B; --down:#D23B3B;
+  --up-bg:#DDF3E8; --down-bg:#FBE1E1; --warn-bg:#FFF1D6; --warn-ink:#7A5200;
+  --font-ui:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-num:"DM Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1118; --surface:#161B25; --ink:#E8ECF3; --muted:#8E99AB; --line:#262D3A;
+  --accent:#8E9BFF; --accent-ink:#0E1118; --up:#38C98B; --down:#FF6B6B;
+  --up-bg:#12382A; --down-bg:#431D1F; --warn-bg:#3A2F10; --warn-ink:#F2C879; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1118; --surface:#161B25; --ink:#E8ECF3; --muted:#8E99AB; --line:#262D3A;
+  --accent:#8E9BFF; --accent-ink:#0E1118; --up:#38C98B; --down:#FF6B6B;
+  --up-bg:#12382A; --down-bg:#431D1F; --warn-bg:#3A2F10; --warn-ink:#F2C879; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:15px;line-height:1.4;
+  padding-inline:16px;padding-block:0 32px;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:560px;margin-inline:auto;min-width:0}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:14px 8px}
+.head-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font-size:20px;font-weight:700;letter-spacing:-.01em;margin:0}
+.btn{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn[disabled]{opacity:.55;cursor:default}
+.rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.rule{font-size:12px;font-weight:600;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:3px 8px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-block:10px 4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 12px;font-size:13px;font-weight:500}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip small{opacity:.75;margin-left:4px;font-family:var(--font-num)}
+.src{display:grid;gap:6px;margin-block:8px}
+.srcrow{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);min-width:0}
+.dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.ok{background:var(--up)} .dot.err{background:var(--down)} .dot.busy{background:var(--accent)}
+.srcrow span{min-width:0;overflow-wrap:anywhere}
+.banner{background:var(--warn-bg);color:var(--warn-ink);border-radius:10px;padding:10px 12px;font-size:13px;margin-block:8px}
+.sortbar{display:flex;justify-content:space-between;align-items:center;padding-block:6px;font-size:13px;color:var(--muted)}
+.sel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font:inherit;font-size:13px;color:var(--ink)}
+.list{display:grid;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.id{min-width:0}
+.sym{font-family:var(--font-num);font-weight:700;font-size:17px}
+.tag{display:inline-block;margin-left:8px;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 6px;vertical-align:2px}
+.name{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.px{text-align:right;flex:none}
+.px b{display:block;font-weight:500;font-size:16px}
+.pill{display:inline-block;margin-top:2px;padding:1px 7px;border-radius:6px;font-size:12px;font-weight:500}
+.pill.up{background:var(--up-bg);color:var(--up)} .pill.down{background:var(--down-bg);color:var(--down)} .pill.flat{background:var(--bg);color:var(--muted)}
+.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.m{background:var(--bg);border-radius:8px;padding:8px 10px;min-width:0}
+.m span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.m b{font-weight:500;font-size:15px}
+.m i{font-style:normal;color:var(--up);margin-left:4px;font-size:12px}
+.m small{display:block;font-size:11px;color:var(--muted);margin-top:1px}
+.empty{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:26px 16px;text-align:center;color:var(--muted);font-size:14px}
+.empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
+.foot{margin-top:16px;font-size:12px;color:var(--muted)}
+</style>
+
+<title>Pocket Screener</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: sticky header with live rule strip and exchange chips, collapsible settings, one card per match. */
+:root{
+  --bg:#EDEFF3; --surface:#FFFFFF; --ink:#151A23; --muted:#5E6877; --line:#D8DCE4;
+  --accent:#3D4CF2; --accent-ink:#FFFFFF; --up:#0E8F5B; --down:#D23B3B;
+  --up-bg:#DDF3E8; --down-bg:#FBE1E1; --warn-bg:#FFF1D6; --warn-ink:#7A5200; --warn:#C98A00;
+  --font-ui:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-num:"DM Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1118; --surface:#161B25; --ink:#E8ECF3; --muted:#8E99AB; --line:#262D3A;
+  --accent:#8E9BFF; --accent-ink:#0E1118; --up:#38C98B; --down:#FF6B6B;
+  --up-bg:#12382A; --down-bg:#431D1F; --warn-bg:#3A2F10; --warn-ink:#F2C879; --warn:#E5AE2E; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1118; --surface:#161B25; --ink:#E8ECF3; --muted:#8E99AB; --line:#262D3A;
+  --accent:#8E9BFF; --accent-ink:#0E1118; --up:#38C98B; --down:#FF6B6B;
+  --up-bg:#12382A; --down-bg:#431D1F; --warn-bg:#3A2F10; --warn-ink:#F2C879; --warn:#E5AE2E; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:15px;line-height:1.4;
+  padding-inline:16px;padding-block:0 32px;-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:560px;margin-inline:auto;min-width:0}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:14px 8px}
+.head-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.head-row .acts{display:flex;gap:8px}
+h1{font-size:20px;font-weight:700;letter-spacing:-.01em;margin:0}
+.btn{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn[disabled]{opacity:.55;cursor:default}
+.rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.rule{font-size:12px;font-weight:600;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:3px 8px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-block:10px 4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 12px;font-size:13px;font-weight:500}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip small{opacity:.75;margin-left:4px;font-family:var(--font-num)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin-block:8px}
+.panel h2{margin:0 0 10px;font-size:14px}
+.panel h3{margin:14px 0 8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.panel p{margin:0 0 8px;font-size:13px;color:var(--muted)}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fgrid label,.one label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+.fgrid input,.fgrid select,.one input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px;color:var(--ink)}
+.fgrid input[aria-invalid="true"]{border-color:var(--down)}
+.row-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.src{display:grid;gap:6px;margin-block:8px}
+.srcrow{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--muted);min-width:0}
+.dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--muted);margin-top:6px}
+.dot.ok{background:var(--up)} .dot.err{background:var(--down)} .dot.busy{background:var(--accent)} .dot.warn{background:var(--warn)}
+.srcrow span{min-width:0;overflow-wrap:anywhere}
+.banner{background:var(--warn-bg);color:var(--warn-ink);border-radius:10px;padding:10px 12px;font-size:13px;margin-block:8px}
+.banner .row-actions{margin-top:8px}
+.sortbar{display:flex;justify-content:space-between;align-items:center;padding-block:6px;font-size:13px;color:var(--muted)}
+.sel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:13px;color:var(--ink)}
+.list{display:grid;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.id{min-width:0}
+.sym{font-family:var(--font-num);font-weight:700;font-size:17px}
+.tag{display:inline-block;margin-left:8px;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 6px;vertical-align:2px}
+.name{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.px{text-align:right;flex:none}
+.px b{display:block;font-weight:500;font-size:16px}
+.px small{font-size:11px;color:var(--muted)}
+.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.m{background:var(--bg);border-radius:8px;padding:8px 10px;min-width:0}
+.m span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.m b{font-weight:500;font-size:15px}
+.m i{font-style:normal;color:var(--up);margin-left:4px;font-size:12px}
+.div{margin-top:10px;display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.div div{display:flex;justify-content:space-between;gap:8px;min-width:0}
+.div b{font-weight:500;color:var(--ink);text-align:right}
+.div .lbl{white-space:nowrap}
+.empty{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:26px 16px;text-align:center;color:var(--muted);font-size:14px}
+.empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
+.foot{margin-top:16px;font-size:12px;color:var(--muted)}
+</style>
+
+<title>Pocket Screener</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: sticky header with live rule strip and exchange chips, collapsible settings, one card per match. */
+:root{
+  --bg:#EDEFF3; --surface:#FFFFFF; --ink:#151A23; --muted:#5E6877; --line:#D8DCE4;
+  --accent:#3D4CF2; --accent-ink:#FFFFFF; --up:#0E8F5B; --down:#D23B3B;
+  --up-bg:#DDF3E8; --down-bg:#FBE1E1; --warn-bg:#FFF1D6; --warn-ink:#7A5200; --warn:#C98A00;
+  --font-ui:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-num:"DM Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1118; --surface:#161B25; --ink:#E8ECF3; --muted:#8E99AB; --line:#262D3A;
+  --accent:#8E9BFF; --accent-ink:#0E1118; --up:#38C98B; --down:#FF6B6B;
+  --up-bg:#12382A; --down-bg:#431D1F; --warn-bg:#3A2F10; --warn-ink:#F2C879; --warn:#E5AE2E; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1118; --surface:#161B25; --ink:#E8ECF3; --muted:#8E99AB; --line:#262D3A;
+  --accent:#8E9BFF; --accent-ink:#0E1118; --up:#38C98B; --down:#FF6B6B;
+  --up-bg:#12382A; --down-bg:#431D1F; --warn-bg:#3A2F10; --warn-ink:#F2C879; --warn:#E5AE2E; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:15px;line-height:1.4;
+  padding-inline:16px;padding-block:0 32px;-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:560px;margin-inline:auto;min-width:0}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:14px 8px}
+.head-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.head-row .acts{display:flex;gap:8px}
+h1{font-size:20px;font-weight:700;letter-spacing:-.01em;margin:0}
+.btn{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn[disabled]{opacity:.55;cursor:default}
+.rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.rule{font-size:12px;font-weight:600;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:3px 8px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-block:10px 4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 12px;font-size:13px;font-weight:500}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip small{opacity:.75;margin-left:4px;font-family:var(--font-num)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin-block:8px}
+.panel h2{margin:0 0 10px;font-size:14px}
+.panel h3{margin:14px 0 8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.panel p{margin:0 0 8px;font-size:13px;color:var(--muted)}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fgrid label,.one label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+.fgrid input,.fgrid select,.one input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px;color:var(--ink)}
+.fgrid input[aria-invalid="true"]{border-color:var(--down)}
+.row-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.src{display:grid;gap:6px;margin-block:8px}
+.srcrow{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--muted);min-width:0}
+.dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--muted);margin-top:6px}
+.dot.ok{background:var(--up)} .dot.err{background:var(--down)} .dot.busy{background:var(--accent)} .dot.warn{background:var(--warn)}
+.srcrow span{min-width:0;overflow-wrap:anywhere}
+.banner{background:var(--warn-bg);color:var(--warn-ink);border-radius:10px;padding:10px 12px;font-size:13px;margin-block:8px}
+.banner .row-actions{margin-top:8px}
+.sortbar{display:flex;justify-content:space-between;align-items:center;padding-block:6px;font-size:13px;color:var(--muted)}
+.sel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:13px;color:var(--ink)}
+.list{display:grid;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.id{min-width:0}
+.sym{font-family:var(--font-num);font-weight:700;font-size:17px}
+.tag{display:inline-block;margin-left:8px;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 6px;vertical-align:2px}
+.name{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.px{text-align:right;flex:none}
+.px b{display:block;font-weight:500;font-size:16px}
+.px small{font-size:11px;color:var(--muted)}
+.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.m{background:var(--bg);border-radius:8px;padding:8px 10px;min-width:0}
+.m span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.m b{font-weight:500;font-size:15px}
+.m i{font-style:normal;color:var(--up);margin-left:4px;font-size:12px}
+.div{margin-top:10px;display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.div div{display:flex;justify-content:space-between;gap:8px;min-width:0}
+.div b{font-weight:500;color:var(--ink);text-align:right}
+.div .lbl{white-space:nowrap}
+.empty{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:26px 16px;text-align:center;color:var(--muted);font-size:14px}
+.empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
+.foot{margin-top:16px;font-size:12px;color:var(--muted)}
+</style>
+
+<body>
+<div class="wrap">
+  <header>
+    <div class="head-row">
+      <h1>Pocket Screener</h1>
+      <div class="acts">
+        <button class="btn" id="settingsBtn" type="button" aria-expanded="false">Settings</button>
+        <button class="btn primary" id="scan" type="button">Scan now</button>
+      </div>
+    </div>
+    <div class="rules" id="rules" aria-label="Rules every result passes"></div>
+    <div class="chips" id="chips" role="group" aria-label="Exchange"></div>
+  </header>
+
+  <section class="panel" id="settings" hidden>
+    <h2>Settings</h2>
+    <p>Applied to Binance instantly. Stocks are scanned by your GitHub job, so changed settings need a stock rescan.</p>
+    <div class="fgrid" id="fields"></div>
+    <h3>Binance only</h3>
+    <div class="fgrid" id="cfields"></div>
+    <h3>Stock rescan from this app</h3>
+    <p id="ghhelp">Optional. Paste a GitHub token so the app can start the stock scan with your settings. It stays in this browser. Create a fine-grained token for your repo with Actions: Read and write.</p>
+    <div class="fgrid">
+      <label>Repository (owner/name)<input id="ghRepo" type="text" autocomplete="off" placeholder="you/screener"></label>
+      <label>Branch<input id="ghBranch" type="text" autocomplete="off" placeholder="main"></label>
+    </div>
+    <div class="one" style="margin-top:10px"><label>GitHub token<input id="ghToken" type="password" autocomplete="off" placeholder="github_pat_…"></label></div>
+    <div class="row-actions">
+      <button class="btn primary" id="applyBtn" type="button">Apply and scan</button>
+      <button class="btn" id="resetBtn" type="button">Reset defaults</button>
+    </div>
+    <p id="invalid" style="margin:10px 0 0;color:var(--down)"></p>
+  </section>
+
+  <div class="src" id="src"></div>
+  <div id="banner"></div>
+
+  <div class="sortbar">
+    <span id="count"></span>
+    <label>Sort <select class="sel" id="sort">
+      <option value="age">Newest signal</option><option value="pct">Above EMA %</option><option value="rsi">RSI</option>
+    </select></label>
+  </div>
+  <main class="list" id="list"></main>
+  <p class="foot" id="foot"></p>
+</div>
+
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id)};
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
+
+/* ---------- Settings ---------- */
+var DEFAULTS={tf:"1d",ema:1200,rsiLen:14,pivL:5,pivR:5,rangeMin:5,rangeMax:60,maxAge:3,priceSrc:"low"};
+var CDEF={minVol:1000000,maxPairs:400};
+var FIELDS=[
+ ["tf","Timeframe","select",["15m","1h","4h","1d","1w"]],
+ ["ema","EMA period","num",2,5000],
+ ["rsiLen","RSI length","num",2,200],
+ ["priceSrc","Price at pivots","select",["low","close"]],
+ ["pivL","Pivot bars left","num",1,50],
+ ["pivR","Pivot bars right","num",1,50],
+ ["rangeMin","Min bars between pivots","num",1,500],
+ ["rangeMax","Max bars between pivots","num",2,1000],
+ ["maxAge","Max signal age (bars)","num",0,50]];
+var CFIELDS=[["minVol","Min 24h volume ($)","num",0,1e12],["maxPairs","Max pairs to scan","num",10,1000]];
+var P=Object.assign({},DEFAULTS),C=Object.assign({},CDEF);
+try{var sv=JSON.parse(store("ps-p")||"{}");Object.keys(DEFAULTS).forEach(function(k){if(sv[k]!==undefined)P[k]=sv[k]});
+    var sc=JSON.parse(store("ps-c")||"{}");Object.keys(CDEF).forEach(function(k){if(sc[k]!==undefined)C[k]=sc[k]})}catch(e){}
+function validate(){
+  var bad=[];
+  FIELDS.concat(CFIELDS).forEach(function(f){
+    if(f[2]==="num"){var src=CDEF[f[0]]!==undefined?C:P,v=Number(src[f[0]]);
+      if(!isFinite(v)||v<f[3]||v>f[4]||Math.floor(v)!==v)bad.push(f[0]);else src[f[0]]=v}});
+  if(bad.indexOf("rangeMin")<0&&bad.indexOf("rangeMax")<0&&P.rangeMin>P.rangeMax){bad.push("rangeMin");bad.push("rangeMax")}
+  return bad}
+function renderFields(){
+  function mk(list,src){return list.map(function(f){
+    var id="f_"+f[0],v=src[f[0]];
+    if(f[2]==="select")return'<label>'+f[1]+'<select id="'+id+'">'+f[3].map(function(o){return'<option'+(String(v)===o?" selected":"")+'>'+o+'</option>'}).join("")+'</select></label>';
+    return'<label>'+f[1]+'<input id="'+id+'" type="text" inputmode="numeric" value="'+esc(v)+'"></label>'}).join("")}
+  $("fields").innerHTML=mk(FIELDS,P);$("cfields").innerHTML=mk(CFIELDS,C)}
+function readFields(){
+  FIELDS.forEach(function(f){var el=$("f_"+f[0]);P[f[0]]=f[2]==="num"?el.value.trim():el.value});
+  CFIELDS.forEach(function(f){C[f[0]]=$("f_"+f[0]).value.trim()});
+  var bad=validate();
+  FIELDS.concat(CFIELDS).forEach(function(f){$("f_"+f[0]).setAttribute("aria-invalid",String(bad.indexOf(f[0])>=0))});
+  $("invalid").textContent=bad.length?"Check the highlighted fields. "+(bad.indexOf("rangeMin")>=0&&P.rangeMin>P.rangeMax?"Min bars between pivots cannot exceed the max.":""):"";
+  if(!bad.length){store("ps-p",JSON.stringify(P));store("ps-c",JSON.stringify(C))}
+  return bad.length===0}
+function sameParams(a){if(!a)return false;return Object.keys(DEFAULTS).every(function(k){return String(a[k])===String(P[k])})}
+function describe(p){return p.tf+" · EMA "+p.ema+" · RSI "+p.rsiLen+" · pivots "+p.pivL+"/"+p.pivR+" · "+p.rangeMin+"-"+p.rangeMax+" bars apart · age ≤ "+p.maxAge+" · price "+p.priceSrc}
+
+/* ---------- Indicators (same maths as build_data.py) ---------- */
+function emaLast(v,n){if(v.length<n)return null;var a=2/(n+1),e=0,i;for(i=0;i<n;i++)e+=v[i];e/=n;for(i=n;i<v.length;i++)e=a*v[i]+(1-a)*e;return e}
+function rsiSeries(c,n){var out=new Array(c.length).fill(null);if(c.length<n+1)return out;var g=0,l=0,i,d;
+  function rs(){return l===0?100:100-100/(1+g/l)}
+  for(i=1;i<=n;i++){d=c[i]-c[i-1];g+=Math.max(d,0);l+=Math.max(-d,0)}
+  g/=n;l/=n;out[n]=rs();
+  for(i=n+1;i<c.length;i++){d=c[i]-c[i-1];g=(g*(n-1)+Math.max(d,0))/n;l=(l*(n-1)+Math.max(-d,0))/n;out[i]=rs()}
+  return out}
+function lastBullDiv(rsi,price,L,R,minR,maxR,maxAge,full){
+  var n=rsi.length,prev=null,found=null,start=full?L:Math.max(L,n-1-maxAge-R-maxR-L-1),p,j,r,ok,d;
+  for(p=start;p<n-R;p++){
+    r=rsi[p];if(r===null)continue;ok=true;
+    for(j=p-L;j<=p+R;j++){if(rsi[j]===null||rsi[j]<r){ok=false;break}}
+    if(!ok)continue;
+    if(prev){d=p-prev.i;if(d>=minR&&d<=maxR&&r>prev.r&&price[p]<prev.p)found={p:p,q:prev.i,rsiNow:r,rsiPrev:prev.r,priceNow:price[p],pricePrev:prev.p}}
+    prev={i:p,r:r,p:price[p]}}
+  if(!found)return null;
+  found.age=n-1-(found.p+R);
+  return found.age>maxAge?null:found}
+window.__ind={emaLast:emaLast,rsiSeries:rsiSeries,lastBullDiv:lastBullDiv};
+
+/* ---------- State ---------- */
+var R={stocks:[],crypto:[]};
+var SRC={stocks:{state:"idle",msg:"Not loaded"},crypto:{state:"idle",msg:"Not loaded"}};
+var UI={ex:"All",sort:"age",demo:false,mismatch:null,pollMsg:null};
+var POLL=0;
+
+/* ---------- Binance (live, from the browser) ---------- */
+var BASES=["https://data-api.binance.vision","https://api.binance.com"];
+async function bj(path){var err=new Error("no host");
+  for(var i=0;i<BASES.length;i++){try{var r=await fetch(BASES[i]+path);if(r.ok)return await r.json();err=new Error("HTTP "+r.status)}catch(e){err=e}}
+  throw err}
+var STABLE=/^(USDC|FDUSD|TUSD|USDP|DAI|BUSD|USDD|EUR|EURI|GBP|AEUR|PAXG|XUSD|USD1|UST|USDS|BFUSD)$/;
+function klines(sym,tf,limit,endTime){return bj("/api/v3/klines?symbol="+sym+"&interval="+tf+"&limit="+limit+(endTime?"&endTime="+endTime:""))}
+function trimOpen(k){return k.length&&k[k.length-1][6]>Date.now()?k.slice(0,-1):k}
+function fmtTs(ms,tf){var s=new Date(ms).toISOString();return tf==="1d"||tf==="1w"?s.slice(0,10):s.slice(0,10)+" "+s.slice(11,16)+" UTC"}
+async function scanCrypto(){
+  var p=Object.assign({},P),c=Object.assign({},C);
+  SRC.crypto={state:"busy",msg:"Reading Binance tickers…"};paint();
+  try{
+    var all=await bj("/api/v3/ticker/24hr");
+    var cand=all.filter(function(t){if(!/USDT$/.test(t.symbol))return false;var b=t.symbol.slice(0,-4);
+      return !STABLE.test(b)&&+t.quoteVolume>=c.minVol&&+t.lastPrice>0}).sort(function(a,b){return b.quoteVolume-a.quoteVolume}).slice(0,c.maxPairs);
+    var shallowN=Math.min(1000,p.rsiLen*10+p.rangeMax+p.pivL+p.pivR+p.maxAge+50),needDeep=Math.min(5000,p.ema*2+100);
+    var minBars=p.rsiLen+p.pivL+p.pivR+5,stat={div:0,short:0,fail:0,done:0,noEma:0},out=[],idx=0;
+    async function one(t){
+      try{
+        var k=trimOpen(await klines(t.symbol,p.tf,shallowN+1));
+        if(k.length<minBars){stat.short++;return}
+        var closes=k.map(function(x){return +x[4]}),lows=k.map(function(x){return +x[3]});
+        var rsi=rsiSeries(closes,p.rsiLen),d=lastBullDiv(rsi,p.priceSrc==="low"?lows:closes,p.pivL,p.pivR,p.rangeMin,p.rangeMax,p.maxAge);
+        if(!d)return;
+        stat.div++;
+        var dNow=fmtTs(k[d.p][0],p.tf),dPrev=fmtTs(k[d.q][0],p.tf),rsiLast=rsi[rsi.length-1],asOf=fmtTs(k[k.length-1][0],p.tf);
+        var cl=closes;
+        while(cl.length<needDeep){
+          var first=k[0][0],page=await klines(t.symbol,p.tf,1000,first-1);
+          if(!page.length)break;k=page.concat(k);cl=page.map(function(x){return +x[4]}).concat(cl);
+          if(page.length<1000)break}
+        if(cl.length<p.ema){stat.noEma++;return}
+        var e=emaLast(cl,p.ema),px=cl[cl.length-1];
+        if(px>e){d.dateNow=dNow;d.datePrev=dPrev;
+          out.push({id:"c:"+t.symbol,kind:"crypto",sym:t.symbol.slice(0,-4),name:t.symbol.slice(0,-4)+"/USDT",exch:"Binance",
+            price:px,ema:e,pct:(px/e-1)*100,rsi:rsiLast,bars:cl.length,age:d.age,div:d,asOf:asOf})}
+      }catch(e){stat.fail++}finally{stat.done++;if(stat.done%10===0){SRC.crypto={state:"busy",msg:"Binance: checked "+stat.done+" of "+cand.length+" pairs, "+stat.div+" with a divergence so far…"};paint()}}}
+    async function worker(){while(idx<cand.length){await one(cand[idx++])}}
+    var ws=[];for(var w=0;w<6;w++)ws.push(worker());
+    await Promise.all(ws);
+    R.crypto=out;
+    SRC.crypto={state:stat.fail>cand.length*0.5?"err":"ok",
+      msg:"Binance: "+out.length+" match. Checked "+cand.length+" pairs, "+stat.div+" had a fresh divergence, "+stat.noEma+" of those lacked "+p.ema+" bars of history"+(stat.short?", "+stat.short+" too new":"")+(stat.fail?", "+stat.fail+" requests failed":"")+"."};
+  }catch(e){
+    R.crypto=[];
+    SRC.crypto={state:"err",msg:"Binance unreachable ("+e.message+"). Binance blocks some regions and the preview sandbox."}}}
+
+/* ---------- Stocks (precomputed data.json) ---------- */
+async function loadStocks(quiet){
+  if(!quiet){SRC.stocks={state:"busy",msg:"Loading stock scan…"};paint()}
+  try{
+    var r=await fetch("data.json?"+Date.now(),{cache:"no-store"});if(!r.ok)throw new Error("HTTP "+r.status);
+    var d=await r.json();UI.mismatch=null;
+    if(!d.generated){R.stocks=[];SRC.stocks={state:"err",msg:"The stock scan has never run. In GitHub open Actions, pick Refresh stock scan, then Run workflow (see README step 3)."};return d}
+    var when=new Date(d.generated).toLocaleString([],{dateStyle:"medium",timeStyle:"short"});
+    if(!sameParams(d.params)){
+      R.stocks=[];UI.mismatch=d;
+      SRC.stocks={state:"warn",msg:"Stocks: the scan on file (from "+when+") used "+(d.params?describe(d.params):"older settings")+". Your settings differ, so no stocks are shown."};return d}
+    R.stocks=(d.stocks||[]).map(function(s){return {id:"s:"+s.sym,kind:"stock",sym:s.sym,name:s.name,exch:s.exch,price:s.price,ema:s.ema,pct:s.pct,rsi:s.rsi,bars:s.bars,age:s.age,div:s.div,asOf:s.asOf}});
+    var n=d.universe?(d.universe.NASDAQ||0)+(d.universe.NYSE||0):0,old=(Date.now()-Date.parse(d.generated))/864e5>4;
+    SRC.stocks={state:old?"warn":"ok",msg:"Stocks: "+R.stocks.length+" match. Scanned "+(d.scanned||0)+" of "+n+", "+(d.withDivergence||0)+" had a fresh divergence, "+(d.insufficientHistory||0)+" of those lacked "+d.params.ema+" bars. Scan from "+when+(old?" (older than 4 days)":"")+"."};
+    return d;
+  }catch(e){
+    R.stocks=[];
+    SRC.stocks={state:"err",msg:"Could not load data.json ("+e.message+"). The file must sit next to index.html in the repo, and Pages must be switched on."};return null}}
+
+/* ---------- Ask GitHub to rescan stocks with the current settings ---------- */
+function ghCfg(){var c={};try{c=JSON.parse(store("ps-gh")||"{}")}catch(e){}
+  var h=location.hostname,parts=location.pathname.split("/").filter(Boolean);
+  if(!c.repo&&/\.github\.io$/.test(h)&&parts[0]&&parts[0].indexOf(".")<0)c.repo=h.split(".")[0]+"/"+parts[0];
+  c.branch=c.branch||"main";return c}
+function saveGh(){store("ps-gh",JSON.stringify({repo:$("ghRepo").value.trim(),branch:$("ghBranch").value.trim()||"main",token:$("ghToken").value.trim()}))}
+function ghHeaders(t){return {Authorization:"Bearer "+t,Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28"}}
+async function requestStockScan(){
+  if(!readFields())return;saveGh();
+  var c=ghCfg();
+  if(!c.repo||!c.token){UI.pollMsg="Add your repository and GitHub token in Settings first.";openSettings(true);paint();return}
+  var t0=Date.now(),my=++POLL;UI.pollMsg="Requesting a stock scan…";paint();
+  try{
+    var res=await fetch("https://api.github.com/repos/"+c.repo+"/actions/workflows/refresh.yml/dispatches",{method:"POST",headers:ghHeaders(c.token),
+      body:JSON.stringify({ref:c.branch,inputs:{params:JSON.stringify(P)}})});
+    if(res.status!==204){var tx="";try{tx=(await res.json()).message}catch(e){}throw new Error("GitHub said "+res.status+(tx?": "+tx:""))}
+  }catch(e){UI.pollMsg="Could not start the scan. "+e.message;paint();return}
+  UI.pollMsg="Stock scan started. This usually takes 15 to 40 minutes. You can close the app and come back; results appear when you reopen it.";paint();
+  while(my===POLL&&Date.now()-t0<75*60000){
+    await new Promise(function(r){setTimeout(r,30000)});if(my!==POLL)return;
+    try{
+      var rr=await fetch("https://api.github.com/repos/"+c.repo+"/actions/workflows/refresh.yml/runs?event=workflow_dispatch&per_page=1",{headers:ghHeaders(c.token)});
+      if(rr.ok){var j=await rr.json(),run=j.workflow_runs&&j.workflow_runs[0];
+        if(run&&Date.parse(run.created_at)>=t0-120000&&run.status==="completed"&&run.conclusion!=="success"){
+          UI.pollMsg="The stock scan stopped with "+run.conclusion+". Open the run on GitHub to read why: "+run.html_url;paint();return}}
+    }catch(e){}
+    var d=await loadStocks(true);
+    if(d&&d.generated&&Date.parse(d.generated)>t0-60000&&sameParams(d.params)){UI.pollMsg="Stock scan finished.";paint();return}
+    paint()}
+  if(my===POLL){UI.pollMsg="Still waiting after 75 minutes. Check the Actions tab on GitHub.";paint()}}
+
+/* ---------- Demo rows, only to preview the layout ---------- */
+function demo(){
+  var dv=function(a,b,c,d,e,f){return {datePrev:"2026-08-14",dateNow:"2026-09-22",pricePrev:a,priceNow:b,rsiPrev:c,rsiNow:d,age:e}};
+  R.stocks=[{id:"d1",kind:"stock",sym:"DEMO1",name:"Sample Industrial Co (not real)",exch:"NYSE",price:48.2,ema:41.5,pct:16.1,rsi:44.7,bars:1840,age:1,div:dv(41.2,39.8,28.1,33.5,1),asOf:"2026-10-02"},
+            {id:"d2",kind:"stock",sym:"DEMO2",name:"Sample Software Inc (not real)",exch:"NASDAQ",price:22.7,ema:21.9,pct:3.7,rsi:51.2,bars:2210,age:3,div:dv(20.4,19.1,31.0,36.2,3),asOf:"2026-10-02"}];
+  R.crypto=[{id:"d3",kind:"crypto",sym:"DEMO3",name:"DEMO3/USDT (not real)",exch:"Binance",price:1.84,ema:1.52,pct:21.1,rsi:47.9,bars:2450,age:0,div:dv(1.31,1.22,27.4,35.9,0),asOf:"2026-10-02"}];
+  UI.demo=true;UI.mismatch=null;SRC.stocks={state:"ok",msg:"Demo rows. Not real market data."};SRC.crypto={state:"ok",msg:"Demo rows. Not real market data."};paint()}
+
+/* ---------- Render ---------- */
+function fmtPx(p){if(p>=1000)return"$"+p.toLocaleString("en-US",{maximumFractionDigits:2});if(p>=1)return"$"+p.toFixed(2);if(p>=.01)return"$"+p.toFixed(4);return"$"+p.toPrecision(3)}
+function all(){return R.stocks.concat(R.crypto)}
+function visible(){
+  var a=all().filter(function(i){return UI.ex==="All"||i.exch===UI.ex}),k=UI.sort,dir=k==="age"?1:-1;
+  a.sort(function(x,y){var u=x[k],v=y[k];if(u!==v)return(u-v)*dir;return y.pct-x.pct});return a}
+function ageText(a){return a===0?"this bar":a===1?"1 bar ago":a+" bars ago"}
+function paint(){
+  $("rules").innerHTML='<span class="rule num">Close &gt; EMA '+esc(P.ema)+'</span><span class="rule num">Bullish RSI divergence</span><span class="rule num">'+esc(P.tf)+' · RSI '+esc(P.rsiLen)+' · '+esc(P.pivL)+'/'+esc(P.pivR)+'</span>';
+  var n={All:all().length,NASDAQ:0,NYSE:0,Binance:0};all().forEach(function(i){n[i.exch]=(n[i.exch]||0)+1});
+  $("chips").innerHTML=["All","NASDAQ","NYSE","Binance"].map(function(e){
+    return'<button type="button" class="chip" data-ex="'+e+'" aria-pressed="'+(UI.ex===e)+'">'+e+'<small>'+(n[e]||0)+'</small></button>'}).join("");
+  $("src").innerHTML=["stocks","crypto"].map(function(k){var s=SRC[k];return'<div class="srcrow"><i class="dot '+s.state+'"></i><span>'+esc(s.msg)+'</span></div>'}).join("");
+  var b="";
+  if(UI.demo)b+='<div class="banner">Demo rows only, to preview the layout. These are not real stocks or prices.</div>';
+  if(UI.mismatch)b+='<div class="banner">Stocks need a rescan for your current settings. The scan runs on GitHub and takes 15 to 40 minutes.<div class="row-actions"><button class="btn primary" type="button" id="rescan">Scan stocks with these settings</button></div></div>';
+  if(UI.pollMsg)b+='<div class="banner">'+esc(UI.pollMsg)+'</div>';
+  $("banner").innerHTML=b;
+  var a=visible();
+  $("count").textContent=a.length+(a.length===1?" match":" matches");
+  var busy=SRC.stocks.state==="busy"||SRC.crypto.state==="busy";
+  if(!a.length){
+    var problem=SRC.stocks.state==="err"||SRC.stocks.state==="warn"||SRC.crypto.state==="err";
+    $("list").innerHTML='<div class="empty"><b>'+(busy?"Scanning…":problem?"Nothing to show yet":"Nothing passes both rules right now")+'</b>'+
+      (busy?"Binance pairs are checked one by one, so this can take a minute or two.":problem?"At least one source above did not load. Read its status line for what to do.":"Fresh regular bullish divergences are uncommon, and price must also sit above the EMA. Try a longer max signal age or a shorter EMA in Settings.")+
+      (SRC.crypto.state==="err"&&SRC.stocks.state==="err"&&!UI.demo?'<br><br><button type="button" class="btn" id="demoBtn">Preview layout with demo rows</button>':"")+'</div>';
+  }else{
+    var low=P.priceSrc==="low"?"low":"close";
+    $("list").innerHTML=a.map(function(i){
+      var d=i.div;
+      return'<article class="card"><div class="top"><div class="id"><span class="sym">'+esc(i.sym)+'</span><span class="tag">'+esc(i.exch)+'</span>'+
+        '<div class="name">'+esc(i.name)+'</div></div>'+
+        '<div class="px"><b class="num">'+fmtPx(i.price)+'</b><small class="num">EMA '+fmtPx(i.ema)+'</small></div></div>'+
+        '<div class="metrics">'+
+        '<div class="m"><span>Above EMA</span><b class="num">+'+i.pct.toFixed(1)+'%</b><i>✓</i></div>'+
+        '<div class="m"><span>Signal</span><b class="num">'+ageText(i.age)+'</b><i>✓</i></div>'+
+        '<div class="m"><span>RSI now</span><b class="num">'+i.rsi.toFixed(0)+'</b></div></div>'+
+        '<div class="div"><div><span class="lbl">Price '+low+' (lower low)</span><b class="num">'+fmtPx(d.pricePrev)+' → '+fmtPx(d.priceNow)+'</b></div>'+
+        '<div><span class="lbl">RSI low (higher low)</span><b class="num">'+d.rsiPrev.toFixed(1)+' → '+d.rsiNow.toFixed(1)+'</b></div>'+
+        '<div><span class="lbl">Pivots</span><b class="num">'+esc(d.datePrev)+' → '+esc(d.dateNow)+'</b></div></div></article>'}).join("")}
+  var bt=$("scan");bt.disabled=busy;bt.textContent=busy?"Scanning…":"Scan now";
+  $("foot").textContent="Divergence follows TradingView's Divergence Indicator: RSI pivot lows, compared with the previous pivot. Only closed bars are used. EMA is seeded with a simple average, so it needs at least "+P.ema+" bars; new listings are skipped. Not investment advice."}
+
+function openSettings(force){var h=$("settings").hidden;var show=force===true?true:h;$("settings").hidden=!show;$("settingsBtn").setAttribute("aria-expanded",String(show))}
+document.addEventListener("click",function(e){
+  var c=e.target.closest("[data-ex]");if(c){UI.ex=c.dataset.ex;paint();return}
+  if(e.target.id==="demoBtn")demo();
+  if(e.target.id==="rescan")requestStockScan()});
+$("sort").addEventListener("change",function(e){UI.sort=e.target.value;paint()});
+$("settingsBtn").addEventListener("click",function(){openSettings()});
+$("fields").addEventListener("input",function(){readFields();paint()});
+$("cfields").addEventListener("input",function(){readFields()});
+["ghRepo","ghBranch","ghToken"].forEach(function(id){$(id).addEventListener("input",saveGh)});
+$("resetBtn").addEventListener("click",function(){P=Object.assign({},DEFAULTS);C=Object.assign({},CDEF);renderFields();store("ps-p",JSON.stringify(P));store("ps-c",JSON.stringify(C));paint()});
+$("applyBtn").addEventListener("click",function(){if(readFields()){openSettings(false);run()}});
+async function run(){
+  if(!readFields()){openSettings(true);return}
+  UI.demo=false;R={stocks:[],crypto:[]};paint();
+  await Promise.all([loadStocks().then(paint),scanCrypto().then(paint)]);paint()}
+$("scan").addEventListener("click",run);
+var g=ghCfg();$("ghRepo").value=g.repo||"";$("ghBranch").value=g.branch||"main";$("ghToken").value=g.token||"";
+renderFields();paint();run();
+})();
+</script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}</script>
+</body>
+</html>
