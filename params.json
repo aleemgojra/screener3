@@ -1,1 +1,1 @@
-{"tf": "1h", "ema": 1200, "rsiLen": 14, "pivL": 5, "pivR": 5, "rangeMin": 5, "rangeMax": 60, "maxAge": 3, "priceSrc": "low"}
+{"tf": "1d", "ema": 1200, "rsiLen": 14, "pivL": 5, "pivR": 5, "rangeMin": 5, "rangeMax": 60, "maxAge": 3, "priceSrc": "low"}
